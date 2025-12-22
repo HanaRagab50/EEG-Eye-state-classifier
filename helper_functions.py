@@ -5,6 +5,7 @@ from scipy.stats import skew, kurtosis, entropy
 from scipy.fft import rfft, rfftfreq
 from collections import Counter
 import torch
+import scipy
 
 def energy_feature(signal):
     signal = np.asarray(signal)
@@ -316,7 +317,7 @@ def features_all_windows(X_windows, channel_names, sfreq=128):
     return pd.DataFrame(feature_list)
 
 
-def create_sequences(X, y, seq_len):
+def create_sequences(X, y, seq_len,overlap=1):
     # Convert pandas → numpy
     if hasattr(X, "values"):
         X = X.values
@@ -326,8 +327,9 @@ def create_sequences(X, y, seq_len):
     y = np.squeeze(y)  # ensure (N,)
 
     X_seq, y_seq = [], []
+    stride = int(seq_len *overlap)  
+    for i in range(0, len(X) - seq_len + 1, stride):
 
-    for i in range(0, len(X) - seq_len + 1, seq_len):
         X_seq.append(X[i:i+seq_len])      # (seq_len, n_channels)
         y_seq.append(y[i:i+seq_len])      # (seq_len,)
 
@@ -335,3 +337,17 @@ def create_sequences(X, y, seq_len):
         torch.tensor(np.array(X_seq), dtype=torch.float32),
         torch.tensor(np.array(y_seq), dtype=torch.float32)
     )
+
+def normalize(eeg_df,t):
+    abs_z_scores= np.abs(scipy.stats.zscore(eeg_df,axis=0))
+    eeg_df_filtred= eeg_df.copy()
+    eeg_df_filtred[abs_z_scores>=t]= np.nan
+    droped_count= eeg_df_filtred.isna().sum().sum()
+    return eeg_df_filtred, droped_count
+
+def band_bass(highcut,lowcut,order=4,sfreq=128):
+    nyquist = sfreq/ 2
+    low = lowcut / nyquist
+    high = highcut / nyquist
+    b,a=scipy.signal.butter(order,[low,high],btype='band')
+    return b,a
