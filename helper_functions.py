@@ -4,6 +4,7 @@ import pandas as pd
 from scipy.stats import skew, kurtosis, entropy
 from scipy.fft import rfft, rfftfreq
 from collections import Counter
+import torch
 
 def energy_feature(signal):
     signal = np.asarray(signal)
@@ -314,3 +315,23 @@ def features_all_windows(X_windows, channel_names, sfreq=128):
 
     return pd.DataFrame(feature_list)
 
+
+def create_sequences(X, y, seq_len):
+    # Convert pandas → numpy
+    if hasattr(X, "values"):
+        X = X.values
+    if hasattr(y, "values"):
+        y = y.values
+
+    y = np.squeeze(y)  # ensure (N,)
+
+    X_seq, y_seq = [], []
+
+    for i in range(0, len(X) - seq_len + 1, seq_len):
+        X_seq.append(X[i:i+seq_len])      # (seq_len, n_channels)
+        y_seq.append(y[i:i+seq_len])      # (seq_len,)
+
+    return (
+        torch.tensor(np.array(X_seq), dtype=torch.float32),
+        torch.tensor(np.array(y_seq), dtype=torch.float32)
+    )
